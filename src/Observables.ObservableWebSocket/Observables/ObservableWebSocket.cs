@@ -14,6 +14,11 @@ public class ObservableWebSocket : IDisposable
 	public event EventHandler<EventArgs>? Aborted;
 
 	/// <summary>
+	/// An event triggered when a chunk of data is sent over the websocket connection.
+	/// </summary>
+	public event EventHandler<ReadOnlyMemory<byte>>? ChunkSent;
+
+	/// <summary>
 	/// An event triggered when binary data is sent over the websocket connection.
 	/// </summary>
 	public event EventHandler<ReadOnlyMemory<byte>>? BinarySent;
@@ -24,24 +29,29 @@ public class ObservableWebSocket : IDisposable
 	public event EventHandler<EventArgs>? Closed;
 
 	/// <summary>
-	/// An event triggered when an output closure message is sent over the websocket connection.
-	/// </summary>
-	public event EventHandler<EventArgs>? CloseSent;
-
-	/// <summary>
 	/// An event triggered when the websocket connection is disposed.
 	/// </summary>
 	public event EventHandler<EventArgs>? Disposed;
 
 	/// <summary>
-	/// An event triggered when text data is sent over the websocket connection.
+	/// An event triggered when an output closure message is sent over the websocket connection.
 	/// </summary>
-	public event EventHandler<ReadOnlyMemory<byte>>? MessageSent;
+	public event EventHandler<EventArgs>? OutputClosed;
 
 	/// <summary>
 	/// An event triggered when data is received over the websocket connection.
 	/// </summary>
 	public event EventHandler<ReadOnlyMemory<byte>>? Received;
+
+	/// <summary>
+	/// An event triggered when data is sent over the websocket connection.
+	/// </summary>
+	public event EventHandler<ReadOnlyMemory<byte>>? Sent;
+
+	/// <summary>
+	/// An event triggered when text data is sent over the websocket connection.
+	/// </summary>
+	public event EventHandler<ReadOnlyMemory<byte>>? TextSent;
 
 	/// <summary>
 	/// Indicates the reason why the remote endpoint initiated the close handshake.
@@ -64,6 +74,16 @@ public class ObservableWebSocket : IDisposable
 	public string? SubProtocol => WebSocket.SubProtocol;
 
 	/// <summary>
+	/// A cancellation token for aborting the websocket connection.
+	/// </summary>
+	private CancellationToken CancellationToken { get; } = new();
+
+	/// <summary>
+	/// A task completion source for when the websocket connection is no longer expecting messages.
+	/// </summary>
+	private TaskCompletionSource TaskCompletionSource { get; } = new();
+
+	/// <summary>
 	/// The wrapped web socket connection.
 	/// </summary>
 	private WebSocket WebSocket { get; }
@@ -72,7 +92,8 @@ public class ObservableWebSocket : IDisposable
 	/// Constructor for this class given an existing websocket connection to wrap.
 	/// </summary>
 	/// <param name="webSocket">The websocket connection to be wrapped.</param>
-	public ObservableWebSocket(WebSocket webSocket)
+	/// <param name="cancellationToken">A cancellation token for aborting the websocket connection.</param>
+	public ObservableWebSocket(WebSocket webSocket, CancellationToken cancellationToken = default)
 	{
 		if (webSocket.State != WebSocketState.Open)
 		{
@@ -81,6 +102,8 @@ public class ObservableWebSocket : IDisposable
 			);
 		}
 		WebSocket = webSocket;
+		cancellationToken.Register(TaskCompletionSource.SetCanceled);
+		InitializeWebSocketListenLoopAsync();
 	}
 
 	/// <summary>
@@ -110,13 +133,25 @@ public class ObservableWebSocket : IDisposable
 	/// </summary>
 	/// <param name="status">The status of the closure.</param>
 	/// <param name="description">The description of the closure.</param>
-	/// <param name="cancellationToken">A cancellation token for the async request.</param>
-	public async Task CloseAsync(
-		WebSocketCloseStatus status, string? description, CancellationToken cancellationToken = default
+	/// <returns>The task object representing the asynchronous operation.</returns>
+	public async ValueTask CloseAsync(WebSocketCloseStatus status, string? description)
+	{
+		await WebSocket.CloseAsync(status, description, cancellationToken: CancellationToken);
+		Closed?.Invoke(this, new());
+	}
+
+	/// <summary>
+	/// Sends a closure message over the websocket connection.
+	/// </summary>
+	/// <param name="status">The status of the closure.</param>
+	/// <param name="description">The description of the closure.</param>
+	/// <returns>The task object representing the asynchronous operation.</returns>
+	public async ValueTask CloseOutputAsync(
+		WebSocketCloseStatus status = WebSocketCloseStatus.NormalClosure, string? description = null
 	)
 	{
-		await WebSocket.CloseAsync(status, description, cancellationToken);
-		Closed?.Invoke(this, new());
+		await WebSocket.CloseOutputAsync(status, description, cancellationToken: CancellationToken);
+		OutputClosed?.Invoke(this, new());
 	}
 
 	/// <summary>
@@ -129,11 +164,61 @@ public class ObservableWebSocket : IDisposable
 	}
 
 	/// <summary>
+	/// Sends a chunk of data over the websocket connection.
+	/// </summary>
+	/// <param name="buffer">The buffer to be sent over the connection.</param>
+	/// <param name="messageType">Indicates whether the application is sending a binary or text message.</param>
+	/// <param name="endOfMessage">Indicates whether the data in "buffer" is the last part of a message.</param>
+	/// <returns>The task object representing the asynchronous operation.</returns>
+	public async ValueTask SendChunkAsync(
+		ArraySegment<byte> chunk, WebSocketMessageType messageType, bool isEndOfMessage
+	)
+	{
+		await WebSocket.SendAsync(chunk, messageType, isEndOfMessage, cancellationToken: CancellationToken);
+		ChunkSent?.Invoke(this, chunk);
+	}
+
+	/// <summary>
+	/// Sends a binary message over the websocket connection.
+	/// </summary>
+	/// <param name="data">The bytes of data to send over the websocket connection.</param>
+	/// <returns>The task object representing the asynchronous operation.</returns>
+	public async ValueTask SendBinaryAsync(ReadOnlyMemory<byte> data)
+	{
+		await SendDataChunksAsync(data, WebSocketMessageType.Binary);
+		BinarySent?.Invoke(this, data);
+		Sent?.Invoke(this, data);
+	}
+
+	/// <summary>
+	/// Sends a text message over the websocket connection.
+	/// </summary>
+	/// <param name="data">The bytes of data to send over the websocket connection.</param>
+	/// <returns>The task object representing the asynchronous operation.</returns>
+	public async ValueTask SendTextAsync(ReadOnlyMemory<byte> data)
+	{
+		await SendDataChunksAsync(data, WebSocketMessageType.Text);
+		TextSent?.Invoke(this, data);
+		Sent?.Invoke(this, data);
+	}
+
+	private async void InitializeWebSocketListenLoopAsync()
+	{
+		while (!TaskCompletionSource.Task.IsCompleted)
+		{
+			CancellationToken.ThrowIfCancellationRequested();
+			await ReceiveAsync();
+		}
+	}
+
+	/// <summary>
 	/// Receives the next message full message from the websocket connection.
 	/// </summary>
-	/// <param name="cancellationToken">A cancellation token for the async request.</param>
-	/// <returns>The message bytes.</returns>
-	public async Task<ReadOnlyMemory<byte>> ReceiveAsync(CancellationToken cancellationToken = default)
+	/// <returns>
+	/// The task object representing the asynchronous operation. The <see cref="ValueTask.Result" /> property on the
+	/// task object returns the message bytes.
+	/// </returns>
+	private async ValueTask<ReadOnlyMemory<byte>> ReceiveAsync()
 	{
 		var ms = new MemoryStream();
 		var buffer = new Memory<byte>(new byte[2048]);
@@ -142,7 +227,7 @@ public class ObservableWebSocket : IDisposable
 		{
 			try
 			{
-				result = await WebSocket.ReceiveAsync(buffer, cancellationToken);
+				result = await WebSocket.ReceiveAsync(buffer, cancellationToken: CancellationToken);
 			}
 			catch
 			{
@@ -159,64 +244,19 @@ public class ObservableWebSocket : IDisposable
 	}
 
 	/// <summary>
-	/// Sends a binary message over the websocket connection.
-	/// </summary>
-	/// <param name="data">The bytes of data to send over the websocket connection.</param>
-	/// <param name="cancellationToken">A cancellation token for the async request.</param>
-	public async Task SendBinaryAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
-	{
-		await SendDataChunksAsync(data, WebSocketMessageType.Binary, cancellationToken);
-		BinarySent?.Invoke(this, data);
-	}
-
-	/// <summary>
-	/// Sends a normal closure message over the websocket connection.
-	/// </summary>
-	/// <param name="cancellationToken">A cancellation token for the async request.</param>
-	public async Task SendCloseAsync(CancellationToken cancellationToken = default) =>
-		await SendCloseAsync(WebSocketCloseStatus.NormalClosure, cancellationToken: cancellationToken);
-
-	/// <summary>
-	/// Sends a closure message of the specified status and description over the websocket connection.
-	/// </summary>
-	/// <param name="status">The status of the closure.</param>
-	/// <param name="description">The description of the closure.</param>
-	/// <param name="cancellationToken">A cancellation token for the async request.</param>
-	public async Task SendCloseAsync(
-		WebSocketCloseStatus status, string? description = null, CancellationToken cancellationToken = default
-	)
-	{
-		await WebSocket.CloseOutputAsync(status, description, cancellationToken);
-		CloseSent?.Invoke(this, new());
-	}
-
-	/// <summary>
-	/// Sends a text message over the websocket connection.
-	/// </summary>
-	/// <param name="data">The bytes of data to send over the websocket connection.</param>
-	/// <param name="cancellationToken">A cancellation token for the async request.</param>
-	public async Task SendMessageAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default)
-	{
-		await SendDataChunksAsync(data, WebSocketMessageType.Text, cancellationToken);
-		MessageSent?.Invoke(this, data);
-	}
-
-	/// <summary>
 	/// Split data into smaller blocks and send them over the websocket connection in sequence.
 	/// </summary>
 	/// <param name="data">The bytes of data to send over the websocket connection.</param>
 	/// <param name="messageType">The type of websocket message.</param>
-	/// <param name="cancellationToken">A cancellation token for the async request.</param>
-	private async Task SendDataChunksAsync(
-		ReadOnlyMemory<byte> data, WebSocketMessageType messageType, CancellationToken cancellationToken = default
-	)
+	/// <returns>The task object representing the asynchronous operation.</returns>
+	private async ValueTask SendDataChunksAsync(ReadOnlyMemory<byte> data, WebSocketMessageType messageType)
 	{
 		var chunks = data.Chunk(2048);
 		var chunkIndex = 0;
 		var chunkUbound = chunks.Count() - 1;
 		foreach (var chunk in chunks)
 		{
-			await WebSocket.SendAsync(chunk, messageType, chunkIndex == chunkUbound, cancellationToken);
+			await WebSocket.SendAsync(chunk, messageType, chunkIndex == chunkUbound, cancellationToken: CancellationToken);
 			chunkIndex++;
 		}
 	}
