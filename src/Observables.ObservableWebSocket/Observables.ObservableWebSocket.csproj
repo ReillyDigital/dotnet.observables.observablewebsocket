@@ -27,9 +27,13 @@
 		<Version>0.1.0</Version>
 	</PropertyGroup>
 	<ItemGroup Label="Package References">
+		<PackageReference Include="ReillyDigital.Enumerations.Options" Version="1.0.1" />
 		<PackageReference Include="ReillyDigital.Extensions.Byte" Version="0.1.1" />
 	</ItemGroup>
 	<ItemGroup Label="Global Usings">
+		<Using Include="ReillyDigital.Enumerations.Options" />
+		<Using Include="ReillyDigital.Enumerations.Options.Functions" Static="true" />
+		<Using Include="ReillyDigital.Enumerations.Options.Void" Alias="Void" />
 		<Using Include="ReillyDigital.Extensions.Byte" />
 	</ItemGroup>
 	<ItemGroup Label="File References">
