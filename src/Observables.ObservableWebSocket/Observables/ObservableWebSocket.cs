@@ -3,75 +3,52 @@ namespace ReillyDigital.Observables;
 using System.Net.WebSockets;
 
 /// <summary>
-/// Observable wrapper for a websocket connection. Subscribable events are provided for when data is received or sent,
+/// Observable wrapper for a WebSocket connection. Subscribable events are provided for when data is received or sent,
 /// as well as events for when the connection is aborted, closed or disposed.
 /// </summary>
-public class ObservableWebSocket : IDisposable
+public class ObservableWebSocket : WebSocket
 {
 	/// <summary>
-	/// An event triggered when the websocket connection is aborted.
+	/// An event triggered when the WebSocket connection is aborted.
 	/// </summary>
-	public event EventHandler<IVoid>? Aborted;
+	public event EventHandler? Aborted;
 
 	/// <summary>
-	/// An event triggered when the websocket connection is closed.
+	/// An event triggered when the WebSocket connection is closed.
 	/// </summary>
-	public event EventHandler<IVoid>? Closed;
+	public event EventHandler? Closed;
 
 	/// <summary>
-	/// An event triggered when the websocket connection is disposed.
+	/// An event triggered when the WebSocket connection is disposed.
 	/// </summary>
-	public event EventHandler<IVoid>? Disposed;
+	public event EventHandler? Disposed;
 
 	/// <summary>
-	/// An event triggered when an output closure message is sent over the websocket connection.
+	/// An event triggered when an output closure message is sent over the WebSocket connection.
 	/// </summary>
-	public event EventHandler<IVoid>? OutputClosed;
+	public event EventHandler? OutputClosed;
 
 	/// <summary>
-	/// An event triggered when data is received over the websocket connection.
+	/// An event triggered when data is received over the WebSocket connection.
 	/// </summary>
-	public event EventHandler<IOption<ObservableWebSocketData>>? Received;
+	public event EventHandler<ObservableWebSocketData>? Received;
 
 	/// <summary>
-	/// An event triggered when data is sent over the websocket connection.
+	/// An event triggered when data is sent over the WebSocket connection.
 	/// </summary>
-	public event EventHandler<IOption<ObservableWebSocketData>>? Sent;
+	public event EventHandler<ObservableWebSocketData>? Sent;
 
-	/// <summary>
-	/// Indicates the reason why the remote endpoint initiated the close handshake.
-	/// </summary>
-	public WebSocketCloseStatus? CloseStatus => WebSocket.CloseStatus;
+	/// <inheritdoc />
+	public override WebSocketCloseStatus? CloseStatus => WebSocket.CloseStatus;
 
-	/// <summary>
-	/// Allows the remote endpoint to describe the reason why the connection was closed.
-	/// </summary>
-	public string? CloseStatusDescription => WebSocket.CloseStatusDescription;
+	/// <inheritdoc />
+	public override string? CloseStatusDescription => WebSocket.CloseStatusDescription;
 
-	/// <summary>
-	/// The mode for how the <see cref="ObservableWebSocket" /> will be observed.
-	/// </summary>
-	public ObservableWebSocketMode Mode { get; }
+	/// <inheritdoc />
+	public override WebSocketState State => WebSocket.State;
 
-	/// <summary>
-	/// Returns the current state of the WebSocket connection.
-	/// </summary>
-	public WebSocketState State => WebSocket.State;
-
-	/// <summary>
-	/// Gets the subprotocol that was negotiated during the opening handshake.
-	/// </summary>
-	public string? SubProtocol => WebSocket.SubProtocol;
-
-	/// <summary>
-	/// A cancellation token for aborting the websocket connection.
-	/// </summary>
-	private CancellationToken CancellationToken { get; } = new();
-
-	/// <summary>
-	/// A task completion source for when the websocket connection is no longer expecting messages.
-	/// </summary>
-	private TaskCompletionSource TaskCompletionSource { get; } = new();
+	/// <inheritdoc />
+	public override string? SubProtocol => WebSocket.SubProtocol;
 
 	/// <summary>
 	/// The wrapped web socket connection.
@@ -79,16 +56,10 @@ public class ObservableWebSocket : IDisposable
 	private WebSocket WebSocket { get; }
 
 	/// <summary>
-	/// Constructor for this class given an existing websocket connection to wrap.
+	/// Constructor for this class given an existing WebSocket connection to wrap.
 	/// </summary>
-	/// <param name="webSocket">The websocket connection to be wrapped.</param>
-	/// <param name="mode">The mode for how the <see cref="ObservableWebSocket" /> will be observed.</param>
-	/// <param name="cancellationToken">A cancellation token for aborting the websocket connection.</param>
-	public ObservableWebSocket(
-		WebSocket webSocket,
-		ObservableWebSocketMode mode = ObservableWebSocketMode.ObserveFullMessages,
-		CancellationToken cancellationToken = default
-	)
+	/// <param name="webSocket">The WebSocket connection to be wrapped.</param>
+	public ObservableWebSocket(WebSocket webSocket)
 	{
 		if (webSocket.State != WebSocketState.Open)
 		{
@@ -96,135 +67,175 @@ public class ObservableWebSocket : IDisposable
 				typeof(ObservableWebSocket).FullName, new ArgumentException($"WebSocket must be open.", nameof(webSocket))
 			);
 		}
-		(Mode, WebSocket) = (mode, webSocket);
-		cancellationToken.Register(TaskCompletionSource.SetCanceled);
-		InitializeWebSocketListenLoopAsync();
+		WebSocket = webSocket;
 	}
 
-	/// <summary>
-	/// Constructor for this class given a URI to use for a new websocket connection to wrap.
-	/// </summary>
-	/// <param name="uri">The URI for a new websocket connection to wrap.</param>
-	/// <param name="mode">The mode for how the <see cref="ObservableWebSocket" /> will be observed.</param>
-	/// <param name="cancellationToken">A cancellation token for aborting the websocket connection.</param>
-	public ObservableWebSocket(
-		string uri,
-		ObservableWebSocketMode mode = ObservableWebSocketMode.ObserveFullMessages,
-		CancellationToken cancellationToken = default
-	) : this(new Uri(uri), mode: mode, cancellationToken: cancellationToken) { }
+	/// <inheritdoc cref="ObservableWebSocket(Uri, CancellationToken)" />
+	public ObservableWebSocket(string uri, CancellationToken cancellationToken = default)
+		: this(new Uri(uri), cancellationToken: cancellationToken) { }
 
 	/// <summary>
-	/// Constructor for this class given a URI to use for a new websocket connection to wrap.
+	/// Constructor for this class given a URI to use for a new WebSocket connection to wrap.
 	/// </summary>
-	/// <param name="uri">The URI for a new websocket connection to wrap.</param>
-	/// <param name="mode">The mode for how the <see cref="ObservableWebSocket" /> will be observed.</param>
-	/// <param name="cancellationToken">A cancellation token for aborting the websocket connection.</param>
-	public ObservableWebSocket(
-		Uri uri,
-		ObservableWebSocketMode mode = ObservableWebSocketMode.ObserveFullMessages,
-		CancellationToken cancellationToken = default
-	)
+	/// <param name="uri">The URI for a new WebSocket connection to wrap.</param>
+	/// <param name="cancellationToken">
+	/// A cancellation token for aborting the initialization of the WebSocket connection.
+	/// </param>
+	public ObservableWebSocket(Uri uri, CancellationToken cancellationToken = default)
 	{
 		var webSocket = new ClientWebSocket();
-		webSocket.ConnectAsync(uri, new()).Wait(cancellationToken);
-		(Mode, WebSocket) = (mode, webSocket);
-		cancellationToken.Register(TaskCompletionSource.SetCanceled);
-		InitializeWebSocketListenLoopAsync();
+		webSocket.ConnectAsync(uri, cancellationToken).Wait(cancellationToken);
+		WebSocket = webSocket;
 	}
 
-	/// <summary>
-	/// Aborts the wrapped websocket connection and invokes the <see cref="Aborted" /> event.
-	/// </summary>
-	public void Abort()
+	/// <summary><inheritdoc /> Then invokes the <see cref="Aborted" /> event.</summary>
+	/// <inheritdoc />
+	public override void Abort()
 	{
 		WebSocket.Abort();
-		Aborted?.Invoke(this, Void());
+		Aborted?.Invoke(this, new());
 	}
 
-	/// <summary>
-	/// Closes the wrapped websocket connection and invokes the <see cref="Closed" /> event.
-	/// </summary>
-	/// <param name="status">The status of the closure.</param>
-	/// <param name="description">The description of the closure.</param>
-	/// <returns>The task object representing the asynchronous operation.</returns>
-	public async ValueTask CloseAsync(WebSocketCloseStatus status, string? description)
-	{
-		await WebSocket.CloseAsync(status, description, cancellationToken: CancellationToken);
-		Closed?.Invoke(this, Void());
-	}
-
-	/// <summary>
-	/// Sends an output closure message over the websocket connection and invokes the <see cref="OutputClosed" /> event.
-	/// </summary>
-	/// <param name="status">The status of the closure.</param>
-	/// <param name="description">The description of the closure.</param>
-	/// <returns>The task object representing the asynchronous operation.</returns>
-	public async ValueTask CloseOutputAsync(
-		WebSocketCloseStatus status = WebSocketCloseStatus.NormalClosure, string? description = null
+	/// <summary><inheritdoc /> Then invokes the <see cref="Closed" /> event.</summary>
+	/// <inheritdoc />
+	public override async Task CloseAsync(
+		WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken
 	)
 	{
-		await WebSocket.CloseOutputAsync(status, description, cancellationToken: CancellationToken);
-		OutputClosed?.Invoke(this, Void());
+		await WebSocket.CloseAsync(closeStatus, statusDescription, cancellationToken);
+		Closed?.Invoke(this, new());
 	}
 
-	/// <summary>
-	/// Disposes the wrapped websocket connection and invokes the <see cref="Disposed" /> event.
-	/// </summary>
-	public void Dispose()
+	/// <summary><inheritdoc /> Then invokes the <see cref="OutputClosed" /> event.</summary>
+	/// <inheritdoc />
+	public override async Task CloseOutputAsync(
+		WebSocketCloseStatus closeStatus, string? statusDescription, CancellationToken cancellationToken
+	)
 	{
+		await WebSocket.CloseOutputAsync(closeStatus, statusDescription, cancellationToken);
+		OutputClosed?.Invoke(this, new());
+	}
+
+	/// <summary><inheritdoc /> Then invokes the <see cref="Disposed" /> event.</summary>
+	/// <inheritdoc />
+	public override void Dispose()
+	{
+		GC.SuppressFinalize(this);
 		WebSocket.Dispose();
-		Disposed?.Invoke(this, Void());
+		Disposed?.Invoke(this, new());
 	}
 
 	/// <summary>
-	/// Sends a chunk of data over the websocket connection.
+	/// Initialized a continuous listen loop for WebSocket messages. Loop will exit if the WebSocket connection is not
+	/// open.
 	/// </summary>
-	/// <param name="buffer">The buffer to be sent over the connection.</param>
-	/// <param name="messageType">Indicates whether the application is sending a binary or text message.</param>
-	/// <param name="endOfMessage">Indicates whether the data in "buffer" is the last part of a message.</param>
-	/// <returns>The task object representing the asynchronous operation.</returns>
-	public async ValueTask SendAsync(
-		ReadOnlyMemory<byte> buffer, WebSocketMessageType messageType, bool endOfMessage
-	)
+	/// <param name="shouldOutputInBlocks">
+	/// Flag indicating that partial message should be output as small blocks; otherwise, output will wait until the end
+	/// of the message is received before outputting the message as a whole.
+	/// </param>
+	/// <param name="cancellationToken">Propagates the notification that operations should be canceled.</param>
+	public async Task ListenAsync(bool shouldOutputInBlocks = false, CancellationToken cancellationToken = default)
 	{
-		await WebSocket.SendAsync(buffer, messageType, endOfMessage, cancellationToken: CancellationToken);
-		Sent?.Invoke(this, Some(new ObservableWebSocketData(buffer, messageType, endOfMessage)));
-	}
-
-	/// <summary>
-	/// Sends a full message over the websocket connection.
-	/// </summary>
-	/// <param name="message">The message bytes to send over the websocket connection.</param>
-	/// <param name="messageType">The type of websocket message.</param>
-	/// <returns>The task object representing the asynchronous operation.</returns>
-	public async ValueTask SendFullMessageAsync(
-		ReadOnlyMemory<byte> message, WebSocketMessageType messageType = WebSocketMessageType.Text
-	)
-	{
-		await SendMessageAsChunksAsync(message, messageType: messageType);
-		Sent?.Invoke(this, Some(new ObservableWebSocketData(message, messageType, true)));
-	}
-
-	/// <summary>
-	/// Initialized a continuous listen loop for websocket messages.
-	/// </summary>
-	private async void InitializeWebSocketListenLoopAsync()
-	{
-		while (!TaskCompletionSource.Task.IsCompleted)
+		while (State == WebSocketState.Open)
 		{
-			CancellationToken.ThrowIfCancellationRequested();
-			await ReceiveAsync();
+			cancellationToken.ThrowIfCancellationRequested();
+			await ReceiveAsync(shouldOutputInBlocks: shouldOutputInBlocks, cancellationToken: cancellationToken);
+			await Task.Delay(100, cancellationToken);
 		}
 	}
 
+	/// <summary><inheritdoc /> Then invokes the <see cref="Received" /> event.</summary>
+	/// <inheritdoc />
+	public override async ValueTask<ValueWebSocketReceiveResult> ReceiveAsync(
+		Memory<byte> buffer, CancellationToken cancellationToken
+	)
+	{
+		var result = await WebSocket.ReceiveAsync(buffer, cancellationToken);
+		Received?.Invoke(this, new(buffer[..result.Count], result.MessageType, result.EndOfMessage));
+		return result;
+	}
+
+	/// <summary><inheritdoc /> Then invokes the <see cref="Received" /> event.</summary>
+	/// <inheritdoc />
+	public override async Task<WebSocketReceiveResult> ReceiveAsync(
+		ArraySegment<byte> buffer, CancellationToken cancellationToken
+	)
+	{
+		var result = await WebSocket.ReceiveAsync(buffer, cancellationToken);
+		Received?.Invoke(this, new(buffer[..result.Count], result.MessageType, result.EndOfMessage));
+		return result;
+	}
+
+	/// <summary><inheritdoc /> Then invokes the <see cref="Sent" /> event.</summary>
+	/// <inheritdoc />
+	public override async ValueTask SendAsync(
+		ReadOnlyMemory<byte> buffer,
+		WebSocketMessageType messageType,
+		bool endOfMessage,
+		CancellationToken cancellationToken
+	)
+	{
+		await WebSocket.SendAsync(buffer, messageType, endOfMessage, cancellationToken);
+		Sent?.Invoke(this, new(buffer, messageType, endOfMessage));
+	}
+
+	/// <summary><inheritdoc /> Then invokes the <see cref="Sent" /> event.</summary>
+	/// <inheritdoc />
+	public override async ValueTask SendAsync(
+		ReadOnlyMemory<byte> buffer,
+		WebSocketMessageType messageType,
+		WebSocketMessageFlags messageFlags,
+		CancellationToken cancellationToken
+	)
+	{
+		await WebSocket.SendAsync(buffer, messageType, messageFlags, cancellationToken);
+		Sent?.Invoke(this, new(buffer, messageType, messageFlags.HasFlag(WebSocketMessageFlags.EndOfMessage)));
+	}
+
+	/// <summary><inheritdoc /> Then invokes the <see cref="Sent" /> event.</summary>
+	/// <inheritdoc />
+	public override async Task SendAsync(
+		ArraySegment<byte> buffer,
+		WebSocketMessageType messageType,
+		bool endOfMessage,
+		CancellationToken cancellationToken
+	)
+	{
+		await WebSocket.SendAsync(buffer, messageType, endOfMessage, cancellationToken);
+		Sent?.Invoke(this, new(buffer, messageType, endOfMessage));
+	}
+
 	/// <summary>
-	/// Receives the next full message from the websocket connection.
+	/// Sends a full message over the WebSocket connection.
 	/// </summary>
-	/// <returns>
-	/// The task object representing the asynchronous operation. The <see cref="ValueTask.Result" /> property on the
-	/// task object returns the message bytes.
-	/// </returns>
-	private async ValueTask ReceiveAsync()
+	/// <param name="message">The message bytes to send over the WebSocket connection.</param>
+	/// <param name="messageType">The type of WebSocket message.</param>
+	/// <param name="cancellationToken">
+	/// The token that propagates the notification that operations should be canceled.
+	/// </param>
+	/// <returns>The task object representing the asynchronous operation.</returns>
+	public async ValueTask SendFullMessageAsync(
+		ReadOnlyMemory<byte> message,
+		WebSocketMessageType messageType = WebSocketMessageType.Text,
+		CancellationToken cancellationToken = default
+	)
+	{
+		await SendMessageAsChunksAsync(message, messageType: messageType, cancellationToken: cancellationToken);
+		Sent?.Invoke(this, new(message, messageType, true));
+	}
+
+	/// <summary>
+	/// Receives the next full message from the WebSocket connection asynchronously.
+	/// </summary>
+	/// <param name="shouldOutputInBlocks">
+	/// Flag indicating that partial message should be output as small blocks; otherwise, output will wait until the end
+	/// of the message is received before outputting the message as a whole.
+	/// </param>
+	/// <param name="cancellationToken">Propagates the notification that operations should be canceled.</param>
+	/// <returns>The task object representing the asynchronous operation.</returns>
+	private async ValueTask ReceiveAsync(
+		bool shouldOutputInBlocks = false, CancellationToken cancellationToken = default
+	)
 	{
 		var ms = new MemoryStream();
 		var buffer = new Memory<byte>(new byte[2048]);
@@ -232,42 +243,54 @@ public class ObservableWebSocket : IDisposable
 		WebSocketMessageType? messageType = null;
 		do
 		{
-			result = await WebSocket.ReceiveAsync(buffer, cancellationToken: CancellationToken);
-			ms.Write(buffer[..result.Count].Span);
-			messageType ??= result.MessageType;
-			if (messageType != result.MessageType)
+			result = await WebSocket.ReceiveAsync(buffer, cancellationToken);
+			var blockSize = result.Count;
+			if (blockSize == 0)
 			{
-				Received?.Invoke(this, Error<ObservableWebSocketData>("Inconsistent message types received."));
+				throw new("Empty block received.");
 			}
+			var blockMessageType = result.MessageType;
+			messageType ??= blockMessageType;
+			if (messageType != blockMessageType)
+			{
+				throw new("Inconsistent message types received.");
+			}
+			var blockBytes = buffer[..blockSize];
+			if (!shouldOutputInBlocks)
+			{
+				ms.Write(blockBytes.Span);
+				continue;
+			}
+			Received?.Invoke(this, new(blockBytes, (WebSocketMessageType)messageType!, result.EndOfMessage));
 		} while (!result.EndOfMessage);
-		if (ms.Length == 0)
+		if (!shouldOutputInBlocks)
 		{
-			Received?.Invoke(this, Error<ObservableWebSocketData>("Empty message received."));
+			ms.Seek(0, SeekOrigin.Begin);
+			Received?.Invoke(this, new(ms.ToArray(), (WebSocketMessageType)messageType!, true));
 		}
-		if (messageType is null)
-		{
-			Received?.Invoke(this, Error<ObservableWebSocketData>("Unknown message type received."));
-		}
-		ms.Seek(0, SeekOrigin.Begin);
-		Received?.Invoke(this, Some(new ObservableWebSocketData(ms.ToArray(), (WebSocketMessageType)messageType!, true)));
 		ms.Close();
 		ms.Dispose();
 	}
 
 	/// <summary>
-	/// Split message bytes into smaller blocks and send them over the websocket connection in sequence.
+	/// Split message bytes into smaller blocks and send them over the WebSocket connection in sequence.
 	/// </summary>
-	/// <param name="message">The message bytes to send over the websocket connection.</param>
-	/// <param name="messageType">The type of websocket message.</param>
+	/// <param name="message">The message bytes to send over the WebSocket connection.</param>
+	/// <param name="messageType">Indicates whether the application is sending a binary or text message.</param>
+	/// <param name="cancellationToken">
+	/// The token that propagates the notification that operations should be canceled.
+	/// </param>
 	/// <returns>The task object representing the asynchronous operation.</returns>
-	private async ValueTask SendMessageAsChunksAsync(ReadOnlyMemory<byte> message, WebSocketMessageType messageType)
+	private async ValueTask SendMessageAsChunksAsync(
+		ReadOnlyMemory<byte> message, WebSocketMessageType messageType, CancellationToken cancellationToken = default
+	)
 	{
 		var chunks = message.Chunk(2048);
 		var chunkIndex = 0;
 		var chunkUbound = chunks.Count() - 1;
 		foreach (var chunk in chunks)
 		{
-			await WebSocket.SendAsync(chunk, messageType, chunkIndex == chunkUbound, cancellationToken: CancellationToken);
+			await WebSocket.SendAsync(chunk, messageType, chunkIndex == chunkUbound, cancellationToken);
 			chunkIndex++;
 		}
 	}
