@@ -244,6 +244,12 @@ public class ObservableWebSocket : WebSocket
 		do
 		{
 			result = await WebSocket.ReceiveAsync(buffer, cancellationToken);
+			if (result.MessageType == WebSocketMessageType.Close)
+			{
+				ms.Close();
+				ms.Dispose();
+				return;
+			}
 			var blockSize = result.Count;
 			if (blockSize == 0)
 			{
