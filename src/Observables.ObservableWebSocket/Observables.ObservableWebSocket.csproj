@@ -13,7 +13,7 @@
 		<PackageProjectUrl>https://gitlab.com/reilly-digital/dotnet/observables.observablewebsocket</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-		<PackageTags>csharp, c#, enumeration</PackageTags>
+		<PackageTags>csharp, c#, websocket, events, observable, listener</PackageTags>
 		<PackageVersion>0.1.0</PackageVersion>
 		<ProjectGuid>0BAC3F2E-8B04-4307-825A-591971BC455C</ProjectGuid>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>

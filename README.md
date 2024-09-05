@@ -56,7 +56,7 @@ Send an output closure message for good measure when the server exits:
 Console.CancelKeyPress +=
 	async (object? sender, ConsoleCancelEventArgs e) =>
 	{
-		await serverSocket.CloseOutputAsync(
+		await observableServerSocket.CloseOutputAsync(
 			System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
 			statusDescription: null,
 			cancellationToken: new()
@@ -71,31 +71,20 @@ _ = observableServerSocket.ListenAsync();
 
 Send an indefinite amount of messages while the socket connection is open:
 ```csharp
-while (serverSocket.State == System.Net.WebSockets.WebSocketState.Open)
+while (
+	observableServerSocket.State == System.Net.WebSockets.WebSocketState.Open
+)
 {
-	await serverSocket.SendAsync(
-		System.Text.Encoding.UTF8.GetBytes("Hello World!"),
-		System.Net.WebSockets.WebSocketMessageType.Text,
-		endOfMessage: true,
-		cancellationToken: new()
-	);
+	await observableServerSocket.SendFullMessageTextAsync("Hello World!");
 	await Task.Delay(1000);
 }
 ```
 
 ## Client Example
 
-Given a client that is requesting a WebSocket connection:
-```csharp
-var clientSocket = new System.Net.WebSockets.ClientWebSocket();
-await clientSocket.ConnectAsync(
-	new Uri("ws://localhost:5000"), cancellationToken: new()
-);
-```
-
 Get an ObservableWebSocket wrapper:
 ```csharp
-var observableClientSocket = new ObservableWebSocket(clientSocket);
+var observableClientSocket = new ObservableWebSocket("ws://localhost:5000");
 ```
 
 Observe the Received event to do stuff whenever a message is received:
@@ -112,14 +101,11 @@ _ = observableClientSocket.ListenAsync();
 
 Send an indefinite amount of messages while the socket connection is open:
 ```csharp
-while (observableClientSocket.State == System.Net.WebSockets.WebSocketState.Open)
+while (
+	observableClientSocket.State == System.Net.WebSockets.WebSocketState.Open
+)
 {
-	await observableClientSocket.SendAsync(
-		System.Text.Encoding.UTF8.GetBytes("Hello back!"),
-		System.Net.WebSockets.WebSocketMessageType.Text,
-		endOfMessage: true,
-		cancellationToken: new()
-	);
+	await observableClientSocket.SendFullMessageTextAsync("Hello back!");
 	await Task.Delay(1000);
 }
 ```

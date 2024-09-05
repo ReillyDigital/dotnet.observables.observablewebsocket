@@ -14,21 +14,16 @@ app.Map(
 		Console.CancelKeyPress +=
 			async (object? sender, ConsoleCancelEventArgs e) =>
 			{
-				await serverSocket.CloseOutputAsync(
-					System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
-					statusDescription: null,
+				await observableServerSocket.CloseOutputNormalAsync(
 					cancellationToken: new()
 				);
 			};
 		_ = observableServerSocket.ListenAsync();
-		while (observableServerSocket.State == System.Net.WebSockets.WebSocketState.Open)
+		while (
+			observableServerSocket.State == System.Net.WebSockets.WebSocketState.Open
+		)
 		{
-			await observableServerSocket.SendAsync(
-				System.Text.Encoding.UTF8.GetBytes("Hello World!"),
-				System.Net.WebSockets.WebSocketMessageType.Text,
-				endOfMessage: true,
-				cancellationToken: new()
-			);
+			await observableServerSocket.SendFullMessageTextAsync("Hello World!");
 			await Task.Delay(1000);
 		}
 	}
@@ -41,12 +36,9 @@ Console.CancelKeyPress += async (object? sender, ConsoleCancelEventArgs e) =>
 	Environment.Exit(0);
 };
 
-var clientSocket = new System.Net.WebSockets.ClientWebSocket();
-await clientSocket.ConnectAsync(
-	new Uri(app.Urls.First().Replace("http://", "ws://")),
-	cancellationToken: new()
+var observableClientSocket = new ObservableWebSocket(
+	app.Urls.First().Replace("http://", "ws://")
 );
-var observableClientSocket = new ObservableWebSocket(clientSocket);
 
 observableClientSocket.Received +=
 	(object? sender, ObservableWebSocketData data) =>
@@ -54,14 +46,11 @@ observableClientSocket.Received +=
 
 _ = observableClientSocket.ListenAsync();
 
-while (observableClientSocket.State == System.Net.WebSockets.WebSocketState.Open)
+while (
+	observableClientSocket.State == System.Net.WebSockets.WebSocketState.Open
+)
 {
-	await observableClientSocket.SendAsync(
-		System.Text.Encoding.UTF8.GetBytes("Hello back!"),
-		System.Net.WebSockets.WebSocketMessageType.Text,
-		endOfMessage: true,
-		cancellationToken: new()
-	);
+	await observableClientSocket.SendFullMessageTextAsync("Hello back!");
 	await Task.Delay(1000);
 }
 
