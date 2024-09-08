@@ -1,0 +1,6 @@
+**/.netcoredbg_hist
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.csproj.user

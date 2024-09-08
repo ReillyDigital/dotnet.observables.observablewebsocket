@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<Company>Reilly Digital</Company>
+		<Description>An observable WebSocket library for .NET.</Description>
+		<EnableSourceLink>true</EnableSourceLink>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<LangVersion>12.0</LangVersion>
+		<NoPackageAnalysis>true</NoPackageAnalysis>
+		<Nullable>enable</Nullable>
+		<PackageId>ReillyDigital.Observables.ObservableWebSocket</PackageId>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageProjectUrl>https://gitlab.com/reilly-digital/dotnet/observables.observablewebsocket</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+		<PackageTags>csharp, c#, websocket, events, observable, listener</PackageTags>
+		<PackageVersion>0.1.0</PackageVersion>
+		<ProjectGuid>0BAC3F2E-8B04-4307-825A-591971BC455C</ProjectGuid>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://gitlab.com/reilly-digital/dotnet/observables.observablewebsocket.git</RepositoryUrl>
+		<RootNamespace>ReillyDigital.Observables</RootNamespace>
+		<Summary>An observable WebSocket library for .NET.</Summary>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<TargetFramework>net8.0</TargetFramework>
+		<Title>ReillyDigital.Observables.ObservableWebSocket - An observable WebSocket library for .NET.</Title>
+		<Version>0.1.0</Version>
+	</PropertyGroup>
+	<ItemGroup Label="Package References">
+		<PackageReference Include="ReillyDigital.Extensions.Byte" Version="0.1.1" />
+	</ItemGroup>
+	<ItemGroup Label="Global Usings">
+		<Using Include="ReillyDigital.Extensions.Byte" />
+	</ItemGroup>
+	<ItemGroup Label="File References">
+		<None Include="README.md">
+			<Pack>True</Pack>
+			<PackagePath>/</PackagePath>
+		</None>
+	</ItemGroup>
+</Project>
