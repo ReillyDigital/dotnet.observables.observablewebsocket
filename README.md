@@ -1,93 +1,244 @@
-# Observables.ObservableWebSocket
+# ReillyDigital.Observables.ObservableWebSocket
 
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/reilly-digital/dotnet/observables.observablewebsocket.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/reilly-digital/dotnet/observables.observablewebsocket/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+An observable WebSocket library for .NET for creating WebSockets that have subscribable events.
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Standard Message Example (Server Usage)
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Given a server that is accepting WebSocket connections:
+```csharp
+using Microsoft.AspNetCore.Builder;
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+var app = WebApplication.CreateBuilder(args).Build();
+app.UseWebSockets();
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+app.Map(
+	"",
+	async (context) =>
+	{
+		using var serverSocket = await context.WebSockets.AcceptWebSocketAsync();
+		// Do stuff...
+	}
+);
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+await app.StartAsync();
+Console.CancelKeyPress += async (object? sender, ConsoleCancelEventArgs e) =>
+{
+	await app.StopAsync();
+	Environment.Exit(0);
+};
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+The above route can utilize an `ObservableWebSocket` to send and receive messages for an indefinite period of time.
 
-## License
-For open source projects, say how it is licensed.
+Note: The below logic would stil exist inside the `app.Map(...)` handler.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Get a handle on the underlying accepted WebSocket connection:
+```csharp
+using var serverSocket = await context.WebSockets.AcceptWebSocketAsync();
+```
+
+Get an ObservableWebSocket wrapper:
+```csharp
+using var observableServerSocket = new ObservableWebSocket(serverSocket);
+```
+
+Observe the Received event to do stuff whenever a message is received:
+```csharp
+observableServerSocket.Received +=
+	(object? sender, ObservableWebSocketData data) =>
+		Console.WriteLine(System.Text.Encoding.UTF8.GetString(data.Bytes.Span));
+```
+
+Send an output closure message for good measure when the server exits:
+```csharp
+Console.CancelKeyPress +=
+	async (object? sender, ConsoleCancelEventArgs e) =>
+	{
+		await observableServerSocket.CloseOutputAsync(
+			System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
+			statusDescription: null,
+			cancellationToken: new()
+		);
+	};
+```
+
+Listen in a background thread for incoming messages that would trigger the received event:
+```csharp
+_ = observableServerSocket.ListenAsync();
+```
+
+Send an indefinite amount of messages while the socket connection is open:
+```csharp
+while (
+	observableServerSocket.State == System.Net.WebSockets.WebSocketState.Open
+)
+{
+	await observableServerSocket.SendFullMessageTextAsync("Hello World!");
+	await Task.Delay(1000);
+}
+```
+
+### Standard Message Example (Client Usage)
+
+Get an ObservableWebSocket wrapper:
+```csharp
+var observableClientSocket = new ObservableWebSocket("ws://localhost:5000");
+```
+
+Observe the Received event to do stuff whenever a message is received:
+```csharp
+observableClientSocket.Received +=
+	(object? sender, ObservableWebSocketData data) =>
+		Console.WriteLine(System.Text.Encoding.UTF8.GetString(data.Bytes.Span));
+```
+
+Listen in a background thread for incoming messages that would trigger the received event:
+```csharp
+_ = observableClientSocket.ListenAsync();
+```
+
+Send an indefinite amount of messages while the socket connection is open:
+```csharp
+while (
+	observableClientSocket.State == System.Net.WebSockets.WebSocketState.Open
+)
+{
+	await observableClientSocket.SendFullMessageTextAsync("Hello back!");
+	await Task.Delay(1000);
+}
+```
+
+### Defined Message Example (Server Usage)
+
+Define a message type for the messages to be sent and received over a WebSocket connection:
+```csharp
+public record GreetingMessage(string Greeting, string[] Recipients);
+```
+
+Given a server that is accepting WebSocket connections:
+```csharp
+using Microsoft.AspNetCore.Builder;
+
+var app = WebApplication.CreateBuilder(args).Build();
+app.UseWebSockets();
+
+app.Map(
+	"",
+	async (context) =>
+	{
+		using var serverSocket = await context.WebSockets.AcceptWebSocketAsync();
+		// Do stuff...
+	}
+);
+
+await app.StartAsync();
+Console.CancelKeyPress += async (object? sender, ConsoleCancelEventArgs e) =>
+{
+	await app.StopAsync();
+	Environment.Exit(0);
+};
+```
+
+The above route can utilize an `ObservableWebSocket` to send and receive messages of the specified type for an indefinite period of time.
+
+Note: The below logic would stil exist inside the `app.Map(...)` handler.
+
+Get a handle on the underlying accepted WebSocket connection:
+```csharp
+using var serverSocket = await context.WebSockets.AcceptWebSocketAsync();
+```
+
+Get an ObservableWebSocket wrapper for the message type to handle:
+```csharp
+using var observableServerSocket =
+	new ObservableWebSocket<GreetingMessage>(serverSocket);
+```
+
+Observe the Received event to do stuff whenever a message of the specified type is received:
+```csharp
+observableServerSocket.Received +=
+	(object? sender, GreetingMessage message) =>
+		Console.WriteLine(
+			$"{message.Greeting} {string.Join(", ", message.Recipients)}"
+		);
+```
+
+Send an output closure message for good measure when the server exits:
+```csharp
+Console.CancelKeyPress +=
+	async (object? sender, ConsoleCancelEventArgs e) =>
+	{
+		await observableServerSocket.CloseOutputAsync(
+			System.Net.WebSockets.WebSocketCloseStatus.NormalClosure,
+			statusDescription: null,
+			cancellationToken: new()
+		);
+	};
+```
+
+Listen in a background thread for incoming messages of the specified type that would trigger the received event:
+```csharp
+_ = observableServerSocket.ListenAsync();
+```
+
+Send an indefinite amount of messages of the specified type while the socket connection is open:
+```csharp
+while (
+	observableServerSocket.State == System.Net.WebSockets.WebSocketState.Open
+)
+{
+	await observableServerSocket.SendAsync(
+		new GreetingMessage("Hello", ["Alice", "Bob", "World"])
+	);
+	await Task.Delay(1000);
+}
+```
+
+### Defined Message Example (Client Usage)
+
+Define a message type for the messages to be sent and received over a WebSocket connection:
+```csharp
+public record GreetingMessage(string Greeting, string[] Recipients);
+```
+
+Get an ObservableWebSocket wrapper:
+```csharp
+var observableClientSocket =
+	new ObservableWebSocket<GreetingMessage>("ws://localhost:5000");
+```
+
+Observe the Received event to do stuff whenever a message of the specified type is received:
+```csharp
+observableClientSocket.Received +=
+	(object? sender, GreetingMessage message) =>
+		Console.WriteLine(
+			$"{message.Greeting} {string.Join(", ", message.Recipients)}"
+		);
+```
+
+Listen in a background thread for incoming messages of the specified type that would trigger the received event:
+```csharp
+_ = observableClientSocket.ListenAsync();
+```
+
+Send an indefinite amount of messages of the specified type while the socket connection is open:
+```csharp
+while (
+	observableClientSocket.State == System.Net.WebSockets.WebSocketState.Open
+)
+{
+	await observableClientSocket.SendAsync(
+		new GreetingMessage("Hello back", ["Plato", "Aristotle", "Server"])
+	)
+	await Task.Delay(1000);
+}
+```
+## Links
+
+Sample Project:
+https://gitlab.com/reilly-digital/dotnet/observables.observablewebsocket/-/tree/main/src/Observables.ObservableWebSocket.Sample
+
+NuGet:
+https://www.nuget.org/packages/ReillyDigital.Observables.ObservableWebSocket
