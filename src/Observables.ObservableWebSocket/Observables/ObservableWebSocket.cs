@@ -171,12 +171,17 @@ public class ObservableWebSocket : IDisposable
 	/// Initialized a continuous listen loop for WebSocket messages. Loop will exit if the WebSocket connection is not
 	/// open.
 	/// </summary>
+	/// <param name="idleTimeout">
+	/// A timeout period in milliseconds where if no responses are received then the listen session will be ended.
+	/// </param>
 	/// <param name="shouldOutputInBlocks">
 	/// Flag indicating that partial message should be output as small blocks; otherwise, output will wait until the end
 	/// of the message is received before outputting the message as a whole.
 	/// </param>
 	/// <param name="cancellationToken">Propagates the notification that operations should be canceled.</param>
-	public async Task ListenAsync(bool shouldOutputInBlocks = false, CancellationToken cancellationToken = default)
+	public async Task ListenAsync(
+		double? idleTimeout = null, bool shouldOutputInBlocks = false, CancellationToken cancellationToken = default
+	)
 	{
 		lock (this)
 		{
@@ -186,26 +191,41 @@ public class ObservableWebSocket : IDisposable
 			}
 			IsListenerRunning = true;
 		}
-		while (State == WebSocketState.Open)
+		try
 		{
-			try
+			var waitInterval = 100;
+			double idleElapsedTime = 0;
+			var hasIdleTimeout = idleTimeout is not null;
+			if (hasIdleTimeout)
+			{
+				using var idleCheckTimer = new Timer(
+					async (_) =>
+					{
+						if (idleElapsedTime > idleTimeout)
+						{
+							await CloseNormalAsync(cancellationToken: cancellationToken);
+							throw new OperationCanceledException("The idle timeout has expired.");
+						}
+						idleElapsedTime += waitInterval;
+					}, null, waitInterval, waitInterval
+				);
+			}
+			while (State == WebSocketState.Open)
 			{
 				await ReceiveFullMessageIgnoringLockAsync(
 					shouldOutputInBlocks: shouldOutputInBlocks, cancellationToken: cancellationToken
 				);
-				await Task.Delay(100, cancellationToken);
-			}
-			catch (OperationCanceledException)
-			{
-				break;
-			}
-			catch (Exception)
-			{
-				IsListenerRunning = false;
-				throw;
+				if (hasIdleTimeout)
+				{
+					idleElapsedTime = 0;
+				}
 			}
 		}
-		IsListenerRunning = false;
+		catch (OperationCanceledException) { }
+		finally
+		{
+			IsListenerRunning = false;
+		}
 	}
 
 	/// <summary>
@@ -636,8 +656,11 @@ public class ObservableWebSocket<TMessage> : IDisposable
 	/// Initialized a continuous listen loop for WebSocket messages. Loop will exit if the WebSocket connection is not
 	/// open.
 	/// </summary>
+	/// <param name="idleTimeout">
+	/// A timeout period in milliseconds where if no responses are received then the listen session will be ended.
+	/// </param>
 	/// <param name="cancellationToken">Propagates the notification that operations should be canceled.</param>
-	public async Task ListenAsync(CancellationToken cancellationToken = default)
+	public async Task ListenAsync(double? idleTimeout = null, CancellationToken cancellationToken = default)
 	{
 		lock (this)
 		{
@@ -660,7 +683,7 @@ public class ObservableWebSocket<TMessage> : IDisposable
 		WebSocket.Received += handler;
 		try
 		{
-			await WebSocket.ListenAsync(cancellationToken: cancellationToken);
+			await WebSocket.ListenAsync(idleTimeout: idleTimeout, cancellationToken: cancellationToken);
 		}
 		catch (OperationCanceledException) { }
 		finally

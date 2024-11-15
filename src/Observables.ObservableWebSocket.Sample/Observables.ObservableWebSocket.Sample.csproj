@@ -7,7 +7,7 @@
 		<ProjectGuid>A82819C4-B3D9-4B6B-8155-F1FA76AC47A9</ProjectGuid>
 		<RootNamespace>ReillyDigital.Observables.ObservableWebSocket.Sample</RootNamespace>
 		<TargetFramework>net8.0</TargetFramework>
-		<Version>0.1.0</Version>
+		<Version>0.1.1</Version>
 	</PropertyGroup>
 	<ItemGroup Label="Project References">
 		<ProjectReference Include="../Observables.ObservableWebSocket/Observables.ObservableWebSocket.csproj">
