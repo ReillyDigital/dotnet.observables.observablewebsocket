@@ -11,15 +11,6 @@ using static System.Text.Json.JsonSerializer;
 /// </summary>
 public class ObservableWebSocket : IDisposable
 {
-	public static async Task<ObservableWebSocket> ConnectAsync(
-		Uri uri, CancellationToken cancellationToken = default
-	)
-	{
-		var webSocket = new ClientWebSocket();
-		await webSocket.ConnectAsync(uri, cancellationToken);
-		return new ObservableWebSocket(webSocket);
-	}
-
 	/// <summary>
 	/// An event triggered when the WebSocket connection is aborted.
 	/// </summary>
