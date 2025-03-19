@@ -11,6 +11,28 @@ using static System.Text.Json.JsonSerializer;
 /// </summary>
 public class ObservableWebSocket : IDisposable
 {
+	/// <inheritdoc cref="CreateAsync(Uri, CancellationToken)" />
+	public static async Task<ObservableWebSocket> CreateAsync(
+		string uri, CancellationToken cancellationToken = default
+	) => await CreateAsync(new Uri(uri), cancellationToken: cancellationToken);
+
+	/// <summary>
+	/// Static factory method for this class given a URI to use for a new WebSocket connection to
+	/// wrap.
+	/// </summary>
+	/// <param name="uri">The URI for a new WebSocket connection to wrap.</param>
+	/// <param name="cancellationToken">
+	/// A cancellation token for aborting the initialization of the WebSocket connection.
+	/// </param>
+	public static async Task<ObservableWebSocket> CreateAsync(
+		Uri uri, CancellationToken cancellationToken = default
+	)
+	{
+		var webSocket = new ClientWebSocket();
+		await webSocket.ConnectAsync(uri, cancellationToken);
+		return new ObservableWebSocket(webSocket);
+	}
+
 	/// <summary>
 	/// An event triggered when the WebSocket connection is aborted.
 	/// </summary>
@@ -76,24 +98,6 @@ public class ObservableWebSocket : IDisposable
 				new ArgumentException($"WebSocket must be open.", nameof(webSocket))
 			);
 		}
-		WebSocket = webSocket;
-	}
-
-	/// <inheritdoc cref="ObservableWebSocket(Uri, CancellationToken)" />
-	public ObservableWebSocket(string uri, CancellationToken cancellationToken = default)
-		: this(new Uri(uri), cancellationToken: cancellationToken) { }
-
-	/// <summary>
-	/// Constructor for this class given a URI to use for a new WebSocket connection to wrap.
-	/// </summary>
-	/// <param name="uri">The URI for a new WebSocket connection to wrap.</param>
-	/// <param name="cancellationToken">
-	/// A cancellation token for aborting the initialization of the WebSocket connection.
-	/// </param>
-	public ObservableWebSocket(Uri uri, CancellationToken cancellationToken = default)
-	{
-		var webSocket = new ClientWebSocket();
-		webSocket.ConnectAsync(uri, cancellationToken).Wait(cancellationToken);
 		WebSocket = webSocket;
 	}
 
@@ -583,6 +587,28 @@ public class ObservableWebSocket : IDisposable
 /// </summary>
 public class ObservableWebSocket<TMessage> : IDisposable
 {
+	/// <inheritdoc cref="CreateAsync(Uri, CancellationToken)" />
+	public static async Task<ObservableWebSocket<TMessage>> CreateAsync(
+		string uri, CancellationToken cancellationToken = default
+	) => await CreateAsync(new Uri(uri), cancellationToken: cancellationToken);
+
+	/// <summary>
+	/// Static factory method for this class given a URI to use for a new WebSocket connection to
+	/// wrap.
+	/// </summary>
+	/// <param name="uri">The URI for a new WebSocket connection to wrap.</param>
+	/// <param name="cancellationToken">
+	/// A cancellation token for aborting the initialization of the WebSocket connection.
+	/// </param>
+	public static async Task<ObservableWebSocket<TMessage>> CreateAsync(
+		Uri uri, CancellationToken cancellationToken = default
+	)
+	{
+		var webSocket = new ClientWebSocket();
+		await webSocket.ConnectAsync(uri, cancellationToken);
+		return new ObservableWebSocket<TMessage>(webSocket);
+	}
+
 	/// <summary>
 	/// An event triggered when the WebSocket connection is aborted.
 	/// </summary>
@@ -640,20 +666,6 @@ public class ObservableWebSocket<TMessage> : IDisposable
 	/// </summary>
 	/// <param name="webSocket">The WebSocket connection to be wrapped.</param>
 	public ObservableWebSocket(WebSocket webSocket) => WebSocket = new(webSocket);
-
-	/// <inheritdoc cref="ObservableWebSocket(Uri, CancellationToken)" />
-	public ObservableWebSocket(string uri, CancellationToken cancellationToken = default)
-		=> WebSocket = new(uri, cancellationToken: cancellationToken);
-
-	/// <summary>
-	/// Constructor for this class given a URI to use for a new WebSocket connection to wrap.
-	/// </summary>
-	/// <param name="uri">The URI for a new WebSocket connection to wrap.</param>
-	/// <param name="cancellationToken">
-	/// A cancellation token for aborting the initialization of the WebSocket connection.
-	/// </param>
-	public ObservableWebSocket(Uri uri, CancellationToken cancellationToken = default)
-		=> WebSocket = new(uri, cancellationToken: cancellationToken);
 
 	/// <summary>
 	/// <inheritdoc cref="WebSocket.Abort()" /> Then invokes the <see cref="Aborted" /> event.
