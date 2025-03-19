@@ -24,10 +24,11 @@ public static class StandardMessagesScenario
 				// Get an ObservableWebSocket wrapper:
 				using var observableServerSocket = new ObservableWebSocket(serverSocket);
 
-				// Observe the Received event to do stuff whenever a message of the specified type is received:
+				// Observe the Received event to do stuff whenever a message of the specified type is
+				// received:
 				observableServerSocket.Received +=
-					(object? sender, ObservableWebSocketData data) =>
-						Console.WriteLine(System.Text.Encoding.UTF8.GetString(data.Bytes.Span));
+					(sender, data)
+						=> Console.WriteLine(System.Text.Encoding.UTF8.GetString(data.Bytes.Span));
 
 				// Send an output closure message for good measure when the server exits:
 				async void OnCancelKeyPressAsync(object? sender, ConsoleCancelEventArgs e)
@@ -37,7 +38,8 @@ public static class StandardMessagesScenario
 				}
 				Console.CancelKeyPress += OnCancelKeyPressAsync;
 
-				// Listen in a background thread for incoming messages that would trigger the received event:
+				// Listen in a background thread for incoming messages that would trigger the received
+				// event:
 				_ = observableServerSocket.ListenAsync();
 
 				// Send an indefinite amount of messages while the socket connection is open:
@@ -62,7 +64,8 @@ public static class StandardMessagesScenario
 		Console.CancelKeyPress += OnCancelKeyPressAsync;
 
 		// Get an ObservableWebSocket wrapper for a client connection:
-		var observableClientSocket = new ObservableWebSocket(app.Urls.First().Replace("http://", "ws://"));
+		var observableClientSocket =
+			new ObservableWebSocket(app.Urls.First().Replace("http://", "ws://"));
 
 		// Observe the Received event to do stuff whenever a message is received:
 		observableClientSocket.Received +=

@@ -24,7 +24,8 @@ public static class DefinedMessagesScenario
 				// Get an ObservableWebSocket wrapper for the message type to handle:
 				using var observableServerSocket = new ObservableWebSocket<GreetingMessage>(serverSocket);
 
-				// Observe the Received event to do stuff whenever a message of the specified type is received:
+				// Observe the Received event to do stuff whenever a message of the specified type is
+				// received:
 				observableServerSocket.Received +=
 					(object? sender, GreetingMessage message) =>
 						Console.WriteLine($"{message.Greeting} {string.Join(", ", message.Recipients)}");
@@ -37,14 +38,17 @@ public static class DefinedMessagesScenario
 				}
 				Console.CancelKeyPress += OnCancelKeyPressAsync;
 
-				// Listen in a background thread for incoming messages of the specified type that would trigger the received
-				// event:
+				// Listen in a background thread for incoming messages of the specified type that would
+				// trigger the received event:
 				_ = observableServerSocket.ListenAsync();
 
-				// Send an indefinite amount of messages of the specified type while the socket connection is open:
+				// Send an indefinite amount of messages of the specified type while the socket connection
+				// is open:
 				while (observableServerSocket.State == System.Net.WebSockets.WebSocketState.Open)
 				{
-					await observableServerSocket.SendAsync(new GreetingMessage("Hello", ["Alice", "Bob", "World"]));
+					await observableServerSocket.SendAsync(
+						new GreetingMessage("Hello", ["Alice", "Bob", "World"])
+					);
 					await Task.Delay(1000);
 				}
 			}
@@ -66,16 +70,18 @@ public static class DefinedMessagesScenario
 		var observableClientSocket =
 			new ObservableWebSocket<GreetingMessage>(app.Urls.First().Replace("http://", "ws://"));
 
-		// Observe the Received event to do stuff whenever a message of the specified type is received:
+		// Observe the Received event to do stuff whenever a message of the specified type is
+		// received:
 		observableClientSocket.Received +=
 			(object? sender, GreetingMessage message) =>
 				Console.WriteLine($"{message.Greeting} {string.Join(", ", message.Recipients)}");
 
-		// Listen in a background thread for incoming messages of the specified type that would trigger the received
-		// event:
+		// Listen in a background thread for incoming messages of the specified type that would
+		// trigger the received event:
 		_ = observableClientSocket.ListenAsync();
 
-		// Send an indefinite amount of messages of the specified type while the socket connection is open:
+		// Send an indefinite amount of messages of the specified type while the socket connection is
+		// open:
 		while (observableClientSocket.State == System.Net.WebSockets.WebSocketState.Open)
 		{
 			observableClientSocket.SendAsync(
