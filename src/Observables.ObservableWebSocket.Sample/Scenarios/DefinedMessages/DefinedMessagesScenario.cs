@@ -1,12 +1,13 @@
 namespace ReillyDigital.Observables.ObservableWebSocket.Sample;
 
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 
 using ReillyDigital.Observables;
 
 public static class DefinedMessagesScenario
 {
-	public static void Run(params string[] args)
+	public static async Task Run(params string[] args)
 	{
 		// For tracking when example is exited upon cancel keypress:
 		var taskCompletionSource = new TaskCompletionSource();
@@ -67,8 +68,9 @@ public static class DefinedMessagesScenario
 		Console.CancelKeyPress += OnCancelKeyPressAsync;
 
 		// Get an ObservableWebSocket wrapper for a client connection:
-		var observableClientSocket =
-			new ObservableWebSocket<GreetingMessage>(app.Urls.First().Replace("http://", "ws://"));
+		var observableClientSocket = await ObservableWebSocket<GreetingMessage>.CreateAsync(
+			app.Urls.First().Replace("http://", "ws://")
+		);
 
 		// Observe the Received event to do stuff whenever a message of the specified type is
 		// received:

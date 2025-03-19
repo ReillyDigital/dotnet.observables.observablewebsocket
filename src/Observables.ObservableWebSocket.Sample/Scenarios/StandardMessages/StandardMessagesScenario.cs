@@ -1,12 +1,13 @@
 namespace ReillyDigital.Observables.ObservableWebSocket.Sample;
 
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 
 using ReillyDigital.Observables;
 
 public static class StandardMessagesScenario
 {
-	public static void Run(params string[] args)
+	public static async Task Run(params string[] args)
 	{
 		// For tracking when example is exited upon cancel keypress:
 		var taskCompletionSource = new TaskCompletionSource();
@@ -65,7 +66,7 @@ public static class StandardMessagesScenario
 
 		// Get an ObservableWebSocket wrapper for a client connection:
 		var observableClientSocket =
-			new ObservableWebSocket(app.Urls.First().Replace("http://", "ws://"));
+			await ObservableWebSocket.CreateAsync(app.Urls.First().Replace("http://", "ws://"));
 
 		// Observe the Received event to do stuff whenever a message is received:
 		observableClientSocket.Received +=

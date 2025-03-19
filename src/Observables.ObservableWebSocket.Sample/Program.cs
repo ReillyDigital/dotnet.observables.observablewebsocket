@@ -1,4 +1,4 @@
 ﻿using ReillyDigital.Observables.ObservableWebSocket.Sample;
 
-StandardMessagesScenario.Run();
-DefinedMessagesScenario.Run();
+await StandardMessagesScenario.Run();
+await DefinedMessagesScenario.Run();

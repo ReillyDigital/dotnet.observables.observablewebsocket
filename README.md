@@ -84,7 +84,8 @@ while (
 
 Get an ObservableWebSocket wrapper:
 ```csharp
-var observableClientSocket = new ObservableWebSocket("ws://localhost:5000");
+var observableClientSocket =
+	await ObservableWebSocket.CreateAsync("ws://localhost:5000");
 ```
 
 Observe the Received event to do stuff whenever a message is received:
@@ -206,7 +207,9 @@ public record GreetingMessage(string Greeting, string[] Recipients);
 Get an ObservableWebSocket wrapper:
 ```csharp
 var observableClientSocket =
-	new ObservableWebSocket<GreetingMessage>("ws://localhost:5000");
+	await ObservableWebSocket<GreetingMessage>.CreateAsync(
+		"ws://localhost:5000"
+	);
 ```
 
 Observe the Received event to do stuff whenever a message of the specified type is received:
